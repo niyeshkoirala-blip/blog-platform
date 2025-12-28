@@ -8,6 +8,8 @@ export interface User {
   bio?: string
   avatar?: string
   createdAt: Date
+  resetToken?: string
+  resetTokenExpiry?: Date
 }
 
 export interface CreateUserInput {
@@ -16,6 +18,7 @@ export interface CreateUserInput {
   name: string
 }
 
+// Added public user profile interface without sensitive data
 export interface UserProfile {
   _id: ObjectId
   name: string

@@ -22,7 +22,7 @@ export function BlogCard({ title, description, date, category, image, slug, auth
     : null
 
   return (
-    <Link href={`/journal/${slug}`} className="group flex flex-col gap-4">
+    <div className="group flex flex-col gap-4">
       <div className="relative aspect-[16/9] overflow-hidden rounded-xl border border-border">
         <Image
           src={image || "/placeholder.svg"}
@@ -51,7 +51,6 @@ export function BlogCard({ title, description, date, category, image, slug, auth
               <Link
                 href={`/profile/${safeAuthorId}`}
                 className="text-xs text-muted-foreground transition-colors hover:text-foreground"
-                onClick={(e) => e.stopPropagation()}
               >
                 {authorName}
               </Link>
@@ -61,6 +60,6 @@ export function BlogCard({ title, description, date, category, image, slug, auth
           </div>
         )}
       </div>
-    </Link>
+    </div>
   )
 }
