@@ -2,6 +2,7 @@
 
 import { BlogCard } from "@/components/blog-card"
 import { useState, useEffect } from "react"
+import { RefreshCw } from "lucide-react"
 
 interface Post {
   _id: string
@@ -19,24 +20,49 @@ export default function JournalPage() {
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedCategory, setSelectedCategory] = useState("All")
+  const [isRefreshing, setIsRefreshing] = useState(false)
+
+  const refreshPosts = async () => {
+    try {
+      setLoading(true)
+      const url = selectedCategory === "All" ? "/api/posts" : `/api/posts?category=${selectedCategory}`
+      const urlWithTimestamp = `${url}?t=${Date.now()}`
+      const response = await fetch(urlWithTimestamp, {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      })
+      const data = await response.json()
+      setPosts(data.posts || [])
+      console.log("[v0] Posts refreshed, count:", data.posts?.length || 0)
+    } catch (error) {
+      console.error("[v0] Failed to fetch posts:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    async function fetchPosts() {
-      try {
-        setLoading(true)
-        const url = selectedCategory === "All" ? "/api/posts" : `/api/posts?category=${selectedCategory}`
-        const response = await fetch(url)
-        const data = await response.json()
-        setPosts(data.posts || [])
-      } catch (error) {
-        console.error("[v0] Failed to fetch posts:", error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchPosts()
+    refreshPosts()
   }, [selectedCategory])
+
+  const handlePostDeleted = (postId: string) => {
+    setPosts((prevPosts) =>
+      prevPosts.filter((post) => {
+        const safePostId = typeof post._id === "string" ? post._id : post._id?.toString()
+        return safePostId !== postId
+      }),
+    )
+  }
+
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true)
+    await refreshPosts()
+    setIsRefreshing(false)
+  }
 
   return (
     <div className="container mx-auto px-6 py-20 md:py-32">
@@ -62,6 +88,15 @@ export default function JournalPage() {
               {cat}
             </button>
           ))}
+          <button
+            onClick={handleManualRefresh}
+            disabled={isRefreshing || loading}
+            className="rounded-full border border-border px-4 py-1.5 text-xs font-medium transition-colors hover:bg-muted disabled:opacity-50"
+            title="Refresh posts from database"
+          >
+            <RefreshCw size={14} className={`inline-block mr-1 ${isRefreshing ? "animate-spin" : ""}`} />
+            Refresh
+          </button>
         </div>
       </div>
 
@@ -91,8 +126,10 @@ export default function JournalPage() {
               category={post.category}
               image={post.imageUrl}
               slug={post.slug}
+              postId={post._id}
               authorName={post.authorName}
               authorId={post.authorId}
+              onPostDeleted={handlePostDeleted}
             />
           ))}
         </div>

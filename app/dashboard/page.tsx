@@ -1,15 +1,60 @@
-import { redirect } from "next/navigation"
-import { getCurrentUser } from "@/lib/get-user"
+"use client"
+
+import { useRouter } from "next/navigation"
+import { useUser } from "@/hooks/use-user"
 import { LogoutButton } from "@/components/logout-button"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { useState, useEffect } from "react"
+import { BlogCard } from "@/components/blog-card"
 
-export default async function DashboardPage() {
-  const user = await getCurrentUser()
+export default function DashboardPage() {
+  const router = useRouter()
+  const { user, isLoading } = useUser()
+  const [userPosts, setUserPosts] = useState<any[]>([])
+  const [postsLoading, setPostsLoading] = useState(true)
 
-  if (!user) {
-    redirect("/login")
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push("/login")
+    }
+  }, [user, isLoading, router])
+
+  useEffect(() => {
+    if (!user?._id) return
+
+    const fetchUserPosts = async () => {
+      try {
+        setPostsLoading(true)
+        const userId = typeof user._id === "string" ? user._id : (user._id as any)?.$oid || String(user._id)
+        const response = await fetch(`/api/posts?authorId=${userId}`, {
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache, no-store, must-revalidate" },
+        })
+        const data = await response.json()
+        setUserPosts(data.posts || [])
+      } catch (error) {
+        console.error("Failed to fetch user posts:", error)
+        setUserPosts([])
+      } finally {
+        setPostsLoading(false)
+      }
+    }
+
+    fetchUserPosts()
+  }, [user?._id])
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto px-4 py-16">
+          <p className="text-muted-foreground">Loading dashboard...</p>
+        </div>
+      </div>
+    )
   }
+
+  if (!user) return null
 
   const userId = typeof user._id === "string" ? user._id : (user._id as any)?.$oid || String(user._id)
 
@@ -44,8 +89,8 @@ export default async function DashboardPage() {
             <div className="rounded-lg border bg-card p-6">
               <h3 className="font-semibold text-lg">Stats</h3>
               <div className="mt-4 space-y-2 text-sm text-muted-foreground">
-                <p>Posts: 0</p>
-                <p>Views: 0</p>
+                <p>Posts: {userPosts.length}</p>
+                <p>Total words: {userPosts.reduce((sum, post) => sum + (post.content?.split(" ").length || 0), 0)}</p>
               </div>
             </div>
 
@@ -63,15 +108,40 @@ export default async function DashboardPage() {
           </div>
 
           <div className="space-y-4">
-            <h2 className="text-2xl font-bold">Your Recent Activity</h2>
-            <div className="rounded-lg border bg-card p-12 text-center text-muted-foreground">
-              <p>Your recent posts and activity will appear here.</p>
-              <Link href="/journal/create">
-                <Button variant="link" className="mt-2">
-                  Write your first post
-                </Button>
-              </Link>
-            </div>
+            <h2 className="text-2xl font-bold">Your Recent Posts</h2>
+            {postsLoading ? (
+              <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
+                <p>Loading your posts...</p>
+              </div>
+            ) : userPosts.length === 0 ? (
+              <div className="rounded-lg border bg-card p-12 text-center text-muted-foreground">
+                <p>You haven't written any posts yet.</p>
+                <Link href="/journal/create">
+                  <Button variant="link" className="mt-2">
+                    Write your first post
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="grid gap-6 md:grid-cols-2">
+                {userPosts.map((post) => (
+                  <BlogCard
+                    key={post._id}
+                    title={post.title}
+                    excerpt={post.excerpt}
+                    category={post.category}
+                    authorName={post.authorName}
+                    imageUrl={post.imageUrl}
+                    createdAt={post.createdAt}
+                    authorId={post.authorId}
+                    postId={post._id}
+                    onPostDeleted={() => {
+                      setUserPosts(userPosts.filter((p) => p._id !== post._id))
+                    }}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

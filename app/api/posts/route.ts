@@ -3,6 +3,8 @@ import { getDatabase } from "@/lib/mongodb"
 import { getCurrentUser } from "@/lib/get-user"
 import type { CreatePostInput } from "@/lib/models/post"
 
+export const dynamic = "force-dynamic" // Force dynamic rendering - disable Next.js caching
+
 // GET - Fetch all published posts from all users
 export async function GET(request: Request) {
   try {
@@ -22,9 +24,15 @@ export async function GET(request: Request) {
       filter.category = category
     }
 
+    console.log("[v0] Fetching posts with filter:", filter)
     const posts = await postsCollection.find(filter).sort({ createdAt: -1 }).limit(50).toArray()
+    console.log("[v0] Found posts count:", posts.length)
 
-    return NextResponse.json({ posts }, { status: 200 })
+    const response = NextResponse.json({ posts }, { status: 200 })
+    response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate")
+    response.headers.set("Pragma", "no-cache")
+    response.headers.set("Expires", "0")
+    return response
   } catch (error) {
     console.error("[v0] Fetch posts error:", error)
     return NextResponse.json({ error: "Failed to fetch posts" }, { status: 500 })
@@ -44,10 +52,7 @@ export async function POST(request: Request) {
 
     // Validate required fields
     if (!body.title || !body.slug || !body.excerpt || !body.content || !body.category) {
-      return NextResponse.json(
-        { error: "Title, slug, excerpt, content, and category are required" },
-        { status: 400 },
-      )
+      return NextResponse.json({ error: "Title, slug, excerpt, content, and category are required" }, { status: 400 })
     }
 
     const db = await getDatabase()
